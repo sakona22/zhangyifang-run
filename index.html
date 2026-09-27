@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>张艺芳快跑</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui, sans-serif;}
+body{background:#111;color:#fff;overflow:hidden;text-align:center;}
+h1{padding:8px;font-size:22px;}
+#tip{font-size:14px;color:#ddd;padding:0 8px;margin-bottom:6px;}
+#score{font-size:26px;padding:6px;}
+#gameBox{
+  width: min(800px,100vw);
+  height: min(520px,70vh);
+  margin:0 auto;
+  position:relative;
+  overflow:hidden;
+  border:3px solid #444;
+  background:#2378bb;
+  touch-action:none;
+}
+/*三条跑道*/
+.track{
+  position:absolute;
+  width:33.33%;height:100%;top:0;
+  background:rgba(40,40,40,0.45);
+}
+.track1{left:0;}
+.track2{left:33.33%;}
+.track3{left:66.66%;}
+
+/*玩家人物*/
+#player{
+  width:62px;height:92px;
+  position:absolute;
+  bottom:30px;
+  left:calc(33.33%/2 - 31px);
+  transition:left 0.15s ease-out;
+  background-image:url('https://p3-flow-image-sign.byteimg.com/tos-cn-i-a9rns2rl98/3100140081394048910d002410043011~tplv-a9rns2rl98-image.image');
+  background-size:cover;
+  background-position:center;
+  border-radius:6px;
+}
+#player.jump{animation: jumpAnim 0.6s ease-out;}
+#player.slide{height:42px;}
+@keyframes jumpAnim{
+  0%{bottom:30px;}
+  50%{bottom:160px;}
+  100%{bottom:30px;}
+}
+
+/*障碍物*/
+.obstacle{
+  width:60px;height:90px;
+  background:#ffdd00;border-radius:6px;
+  position:absolute;bottom:30px;
+}
+
+#gameOver{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.72);
+  display:none;padding-top:160px;
+}
+#restartBtn{
+  padding:12px 24px;font-size:20px;
+  background:#ff4466;border:none;border-radius:8px;color:#fff;
+  cursor:pointer;margin-top:20px;
+}
+</style>
+</head>
+<body>
+<h1>🏃张艺芳快跑</h1>
+<div id="tip">电脑：← →换跑道 ↑跳跃 ↓下蹲 | 手机：上滑跳跃，下滑下蹲，左右滑动切换跑道</div>
+<div id="score">分数：0</div>
+<div id="gameBox">
+  <div class="track track1"></div>
+  <div class="track track2"></div>
+  <div class="track track3"></div>
+  <div id="player"></div>
+  <div id="gameOver">
+    <h2>游戏结束！</h2>
+    <p id="finalScore"></p>
+    <button id="restartBtn">重新开始</button>
+  </div>
+</body>
+
+<script>
+const gameBox = document.getElementById('gameBox');
+const player = document.getElementById('player');
+const scoreDom = document.getElementById('score');
+const gameOverPanel = document.getElementById('gameOver');
+const finalScoreDom = document.getElementById('finalScore');
+const restartBtn = document.getElementById('restartBtn');
+
+let trackIdx = 1; // 0左，1中，2右
+let score = 0;
+let speed = 6;
+let gameRun = true;
+let obstacleList = [];
+let touchStartX = 0;
+let touchStartY = 0;
+
+function getTrackX(i){
+  return i * (gameBox.clientWidth / 3) + (gameBox.clientWidth /3 /2 -31);
+}
+player.style.left = getTrackX(trackIdx)+"px";
+
+//键盘控制
+document.addEventListener('keydown', e=>{
+  if(!gameRun) return;
+  switch(e.key){
+    case "ArrowLeft":
+      if(trackIdx>0) trackIdx--;
+      player.style.left = getTrackX(trackIdx)+"px";
+      break;
+    case "ArrowRight":
+      if(trackIdx<2) trackIdx++;
+      player.style.left = getTrackX(trackIdx)+"px";
+      break;
+    case "ArrowUp":
+      player.classList.add('jump');
+      setTimeout(()=>player.classList.remove('jump'),600);
+      break;
+    case "ArrowDown":
+      player.classList.add('slide');
+      setTimeout(()=>player.classList.remove('slide'),600);
+      break;
+  }
+})
+
+//手机触屏滑动
+gameBox.addEventListener('touchstart', (e)=>{
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+});
+gameBox.addEventListener('touchend', (e)=>{
+  if(!gameRun) return;
+  const endX = e.changedTouches[0].clientX;
+  const endY = e.changedTouches[0].clientY;
+  const dx = endX - touchStartX;
+  const dy = endY - touchStartY;
+  if(Math.abs(dx) > Math.abs(dy)){
+    //水平滑动
+    if(dx>40 && trackIdx<2){
+      trackIdx++;
+      player.style.left = getTrackX(trackIdx)+"px";
+    }else if(dx<-40 && trackIdx>0){
+      trackIdx--;
+      player.style.left = getTrackX(trackIdx)+"px";
+    }
+  }else{
+    //垂直滑动
+    if(dy < -40){
+      player.classList.add('jump');
+      setTimeout(()=>player.classList.remove('jump'),600);
+    }else if(dy>40){
+      player.classList.add('slide');
+      setTimeout(()=>player.classList.remove('slide'),600);
+    }
+  }
+})
+
+//生成障碍物
+function createObstacle(){
+  if(!gameRun) return;
+  const obs = document.createElement('div');
+  obs.className="obstacle";
+  const t = Math.floor(Math.random()*3);
+  obs.style.left = getTrackX(t)+"px";
+  obs.style.bottom = "-100px";
+  gameBox.appendChild(obs);
+  obstacleList.push(obs);
+}
+
+//游戏循环
+function loop(){
+  if(!gameRun) return;
+  score += 1;
+  scoreDom.innerText = "分数："+score;
+  if(score % 80 ===0) createObstacle();
+  for(let i=obstacleList.length-1;i>=0;i--){
+    const o = obstacleList[i];
+    let bot = Number(o.style.bottom.replace("px",""));
+    bot += speed;
+    o.style.bottom = bot+"px";
+    //碰撞检测
+    const pRect = player.getBoundingClientRect();
+    const oRect = o.getBoundingClientRect();
+    const gRect = gameBox.getBoundingClientRect();
+    const pr = {
+      left: pRect.left - gRect.left,
+      right: pRect.right - gRect.left,
+      top: pRect.top - gRect.top,
+      bottom: pRect.bottom - gRect.top
+    }
+    const or = {
+      left: oRect.left - gRect.left,
+      right: oRect.right - gRect.left,
+      top: oRect.top - gRect.top,
+      bottom: oRect.bottom - gRect.bottom
+    }
+    if( !(pr.right < or.left || pr.left > or.right || pr.bottom < or.top || pr.top > or.bottom) ){
+      gameOver();
+      return;
+    }
+    if(bot>550){
+      o.remove();
+      obstacleList.splice(i,1);
+    }
+  }
+  if(score % 300 === 0) speed +=0.5;
+  requestAnimationFrame(loop);
+}
+
+function gameOver(){
+  gameRun = false;
+  finalScoreDom.innerText="最终分数："+score;
+  gameOverPanel.style.display="block";
+}
+
+restartBtn.onclick = ()=>{
+  obstacleList.forEach(o=>o.remove());
+  obstacleList = [];
+  score=0;speed=6;trackIdx=1;gameRun=true;
+  player.style.left = getTrackX(trackIdx)+"px";
+  gameOverPanel.style.display="none";
+  loop();
+}
+loop();
+</script>
+</html>
